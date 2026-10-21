@@ -1,0 +1,52 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop offset="0" stop-color="#62c7ff"/>
+      <stop offset="1" stop-color="#e6faff"/>
+    </linearGradient>
+    <linearGradient id="bus" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff76b"/>
+      <stop offset="1" stop-color="#ffb900"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="1280" fill="url(#sky)"/>
+  <circle cx="590" cy="150" r="65" fill="#ffe95c"/>
+  <g fill="#fff">
+    <ellipse cx="145" cy="210" rx="85" ry="34"/>
+    <ellipse cx="195" cy="190" rx="65" ry="45"/>
+    <ellipse cx="245" cy="215" rx="70" ry="30"/>
+  </g>
+  <path d="M0 850 Q180 700 350 850 T720 810 V1280 H0Z" fill="#83df80"/>
+  <path d="M0 1010 H720 V1280 H0Z" fill="#646c79"/>
+  <path d="M0 1135 H720" stroke="#fff" stroke-width="12" stroke-dasharray="65 45"/>
+  <g transform="translate(75 520)">
+    <rect x="40" y="160" width="490" height="230" rx="38" fill="#e99a12" opacity=".4"/>
+    <rect x="40" y="130" width="490" height="230" rx="38" fill="url(#bus)" stroke="#d78b00" stroke-width="7"/>
+    <path d="M100 130 V70 Q100 40 130 40 H350 Q385 40 385 75 V130Z" fill="#ffcf24" stroke="#d78b00" stroke-width="7"/>
+    <rect x="125" y="65" width="105" height="60" rx="12" fill="#a8edff" stroke="#fff" stroke-width="6"/>
+    <rect x="250" y="65" width="105" height="60" rx="12" fill="#a8edff" stroke="#fff" stroke-width="6"/>
+    <rect x="75" y="165" width="100" height="85" rx="12" fill="#a8edff" stroke="#fff" stroke-width="6"/>
+    <rect x="190" y="165" width="100" height="85" rx="12" fill="#a8edff" stroke="#fff" stroke-width="6"/>
+    <rect x="305" y="165" width="100" height="85" rx="12" fill="#a8edff" stroke="#fff" stroke-width="6"/>
+    <rect x="420" y="165" width="75" height="195" rx="12" fill="#ffed9a" stroke="#d78b00" stroke-width="5"/>
+    <circle cx="455" cy="275" r="7" fill="#d78b00"/>
+    <rect x="55" y="275" width="70" height="30" rx="15" fill="#fff"/>
+    <circle cx="125" cy="130" r="23" fill="#fff" stroke="#e5a000" stroke-width="5"/>
+    <circle cx="125" cy="132" r="10" fill="#26344b"/>
+    <circle cx="125" cy="126" r="4" fill="#fff"/>
+    <circle cx="215" cy="130" r="23" fill="#fff" stroke="#e5a000" stroke-width="5"/>
+    <circle cx="215" cy="132" r="10" fill="#26344b"/>
+    <circle cx="215" cy="126" r="4" fill="#fff"/>
+    <path d="M153 173 Q170 195 190 173" fill="none" stroke="#9b421a" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="110" cy="385" r="58" fill="#26344b"/>
+    <circle cx="110" cy="385" r="30" fill="#dce5f1"/>
+    <circle cx="110" cy="385" r="10" fill="#8d9aaa"/>
+    <circle cx="420" cy="385" r="58" fill="#26344b"/>
+    <circle cx="420" cy="385" r="30" fill="#dce5f1"/>
+    <circle cx="420" cy="385" r="10" fill="#8d9aaa"/>
+  </g>
+  <text x="360" y="105" text-anchor="middle" font-family="sans-serif" font-size="46" font-weight="bold" fill="#164c98">CocoCloud Kids</text>
+  <text x="360" y="430" text-anchor="middle" font-family="sans-serif" font-size="32" font-weight="bold" fill="#164c98">Beep Beep! Let's Go!</text>
+  <text x="360" y="1215" text-anchor="middle" font-family="sans-serif" font-size="26" fill="#fff">Sing • Learn • Grow</text>
+</svg>
