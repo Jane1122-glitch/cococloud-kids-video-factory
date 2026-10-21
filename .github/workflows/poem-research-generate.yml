@@ -1,0 +1,120 @@
+name: CocoCloud Kids - Research and Write a Poem
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "10 8 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  research-and-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Research a child-friendly topic and write an original poem
+        run: |
+          python - <<'PY'
+          import json
+          import random
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          # Free, keyless public Wikipedia search. Topics are selected for young children.
+          topics = [
+              "school bus", "rainbow", "butterfly", "ocean animals", "the moon",
+              "dinosaurs", "farm animals", "colors", "numbers", "the planets",
+              "honey bees", "seasons", "trains", "baby penguins", "clouds",
+              "healthy fruits", "stars", "garden flowers"
+          ]
+          topic = random.choice(topics)
+          query = urllib.parse.urlencode({
+              "action": "query",
+              "list": "search",
+              "srsearch": topic,
+              "format": "json",
+              "srlimit": 3
+          })
+          url = "https://en.wikipedia.org/w/api.php?" + query
+          request = urllib.request.Request(
+              url, headers={"User-Agent": "CocoCloudKidsPoemWorkflow/1.0 (educational project)"}
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  research = json.loads(response.read().decode("utf-8"))
+              results = research.get("query", {}).get("search", [])
+          except Exception as exc:
+              raise SystemExit(f"Topic research failed: {exc}")
+
+          if not results:
+              raise SystemExit("No research results returned; run the workflow again.")
+          result = results[0]
+          title = result.get("title", topic)
+          snippet = result.get("snippet", "")
+          # Remove HTML tags returned by Wikipedia search.
+          import re
+          snippet = re.sub(r"<[^>]+>", "", snippet)
+          snippet = (snippet.replace("&quot;", '"').replace("&#039;", "'")
+                            .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">"))
+
+          # A reusable rhyme structure creates a fresh, kid-friendly draft without a paid API.
+          safe_title = title.strip()
+          lines = [
+              f"Come along and look around,",
+              f"Let's explore {topic} in our town!",
+              f"Clap your hands and tap your feet,",
+              f"Learning something new is sweet!",
+              "",
+              f"{safe_title}, bright and fun,",
+              f"There's so much to learn, everyone!",
+              f"Look up high and look down low,",
+              f"Watch our curious minds all grow!",
+              "",
+              f"Ask a question, count to two,",
+              f"Find one thing that's new to you.",
+              f"Wave goodbye, then shout hooray,",
+              f"We can learn again today!",
+              "",
+              "Clap-clap, tap-tap, sing along,",
+              "Learning makes our day feel strong!",
+              "Big smiles, bright eyes, hip-hip-hooray,",
+              "CocoCloud Kids learn every day!"
+          ]
+
+          timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+          output = Path("output")
+          output.mkdir(exist_ok=True)
+          poem_path = output / "cococloud-kids-poem.md"
+          poem_path.write_text(
+              f"# {safe_title} - CocoCloud Kids Poem\n\n"
+              f"**Research topic:** {topic}\n"
+              f"**Created:** {timestamp}\n\n"
+              "## Quick research note\n\n"
+              f"{snippet}\n\n"
+              f"**Research source:** https://en.wikipedia.org/wiki/"
+              f"{urllib.parse.quote(title.replace(' ', '_'))}\n\n"
+              "## Original poem draft\n\n"
+              + "\n".join(lines) + "\n",
+              encoding="utf-8"
+          )
+          print(f"Research topic: {topic}")
+          print(f"Research result: {title}")
+          print(f"Poem saved to: {poem_path}")
+          print("\n".join(lines))
+          PY
+
+      - name: Save poem as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cococloud-kids-poem
+          path: output/cococloud-kids-poem.md
+          if-no-files-found: error
+          retention-days: 14
