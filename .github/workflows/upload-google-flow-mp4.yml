@@ -1,0 +1,110 @@
+name: CocoCloud Kids - Upload Google Flow MP4 (Private)
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_title:
+        description: "YouTube video title"
+        required: true
+        type: string
+        default: "Rainbow Cloud Achoo 🌈☁️ | CocoCloud Kids"
+      video_description:
+        description: "YouTube video description"
+        required: true
+        type: string
+        default: "Sing, smile, and play along with CocoCloud Kids! 🌈☁️\n\n#CocoCloudKids #NurseryRhymes #KidsSongs"
+      video_tags:
+        description: "Comma-separated YouTube tags"
+        required: true
+        type: string
+        default: "CocoCloud Kids, nursery rhymes, kids songs, toddler songs, preschool songs, cartoon songs"
+
+permissions:
+  contents: read
+
+jobs:
+  upload-google-flow-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify input MP4 exists
+        run: |
+          if [ ! -f "incoming/cococloud-video.mp4" ]; then
+            echo "Missing incoming/cococloud-video.mp4"
+            echo "Upload your Google Flow MP4 to this exact path in the repository, then run this workflow again."
+            exit 1
+          fi
+          file "incoming/cococloud-video.mp4"
+          ls -lh "incoming/cococloud-video.mp4"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install YouTube upload libraries
+        run: python -m pip install --disable-pip-version-check google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib
+
+      - name: Upload video to YouTube as PRIVATE
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          VIDEO_TITLE: ${{ inputs.video_title }}
+          VIDEO_DESCRIPTION: ${{ inputs.video_description }}
+          VIDEO_TAGS: ${{ inputs.video_tags }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from google.oauth2.credentials import Credentials
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          required = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"]
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
+
+          video = Path("incoming/cococloud-video.mp4")
+          if not video.is_file():
+              raise SystemExit(f"Video not found: {video}")
+
+          credentials = Credentials(
+              token=None,
+              refresh_token=os.environ["YOUTUBE_REFRESH_TOKEN"],
+              token_uri="https://oauth2.googleapis.com/token",
+              client_id=os.environ["YOUTUBE_CLIENT_ID"],
+              client_secret=os.environ["YOUTUBE_CLIENT_SECRET"],
+              scopes=["https://www.googleapis.com/auth/youtube.upload"],
+          )
+          youtube = build("youtube", "v3", credentials=credentials, cache_discovery=False)
+          tags = [tag.strip() for tag in os.environ["VIDEO_TAGS"].split(",") if tag.strip()][:500]
+          description = os.environ["VIDEO_DESCRIPTION"][:5000]
+          title = os.environ["VIDEO_TITLE"][:100]
+
+          request = youtube.videos().insert(
+              part="snippet,status",
+              body={
+                  "snippet": {
+                      "title": title,
+                      "description": description,
+                      "tags": tags,
+                      "categoryId": "22",
+                  },
+                  "status": {
+                      "privacyStatus": "private",
+                      "selfDeclaredMadeForKids": True,
+                  },
+              },
+              media_body=MediaFileUpload(str(video), mimetype="video/mp4", resumable=True),
+          )
+          response = request.execute()
+          print("Upload complete. Video ID:", response["id"])
+          print("Privacy: PRIVATE")
+          print("Made for Kids: true")
+          print("YouTube Studio: https://studio.youtube.com/video/" + response["id"] + "/edit")
+          PY
