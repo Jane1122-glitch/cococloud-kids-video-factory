@@ -1,0 +1,91 @@
+name: CocoCloud Kids - Bus Rhyme with Music (Test)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create-video:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install free tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng librsvg2-bin fonts-dejavu-core python3
+
+      - name: Prepare bus, rhyme, and cheerful tune
+        run: |
+          set -e
+          mkdir -p output
+          test -f assets/bus-only.svg
+
+          rsvg-convert -w 480 -h 225 assets/bus-only.svg -o output/bus.png
+
+          cat > poem.txt <<'EOF'
+          Beep beep, here we go,
+          Rolling past the fields below.
+          Round and round, the wheels all spin,
+          Come along and sing with a grin.
+          Beep beep, sunny sky,
+          CocoCloud bus goes rolling by!
+          EOF
+
+          # Free English narration. This is rhythmic narration, not natural AI singing.
+          espeak-ng -v en-us -s 125 -p 65 -f poem.txt -w output/voice.wav
+
+          # Create a simple, original, cheerful instrumental melody using Python's standard library.
+          python3 - <<'PY'
+          import math, wave, struct
+          sample_rate = 22050
+          duration = 24.0
+          # Original simple melody: C major, upbeat 4-beat phrases.
+          notes = [523.25, 523.25, 659.25, 783.99, 783.99, 659.25, 587.33, 587.33,
+                   523.25, 659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 523.25]
+          beat = 0.375
+          frames = []
+          total = int(sample_rate * duration)
+          for i in range(total):
+              t = i / sample_rate
+              note_index = int(t / beat) % len(notes)
+              local = (t / beat) % 1.0
+              freq = notes[note_index]
+              envelope = min(1.0, local * 12) * min(1.0, (1.0-local) * 8)
+              tone = math.sin(2 * math.pi * freq * t)
+              harmony = 0.35 * math.sin(2 * math.pi * (freq / 2) * t)
+              sample = int(4200 * envelope * (tone + harmony))
+              frames.append(struct.pack('<h', max(-32767, min(32767, sample))))
+          with wave.open('output/music.wav', 'wb') as wav:
+              wav.setnchannels(1)
+              wav.setsampwidth(2)
+              wav.setframerate(sample_rate)
+              wav.writeframes(b''.join(frames))
+          PY
+
+          # Mix narration with quieter instrumental music.
+          ffmpeg -y -i output/voice.wav -i output/music.wav \
+            -filter_complex "[0:a]volume=1.0[voice];[1:a]volume=0.18[music];[voice][music]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95[a]" \
+            -map "[a]" output/song-mix.wav
+
+      - name: Render vertical bus Short
+        run: |
+          ffmpeg -y \
+            -f lavfi -i "color=c=skyblue:s=720x1280:r=24:d=24" \
+            -loop 1 -framerate 24 -i output/bus.png \
+            -i output/song-mix.wav \
+            -filter_complex "[0:v]drawbox=x=0:y=850:w=720:h=430:color=lightgreen:t=fill,drawbox=x=0:y=1050:w=720:h=8:color=white:t=fill,drawbox=x=0:y=1210:w=720:h=8:color=white:t=fill,drawtext=text='CocoCloud Kids':fontcolor=blue:fontsize=42:x=(w-text_w)/2:y=250,drawtext=text='Beep Beep Bus!':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=400[bg];[1:v]format=rgba[bus];[bg][bus]overlay=x='-w+t*80':y=665:shortest=1[v]" \
+            -map "[v]" -map 2:a \
+            -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest -movflags +faststart \
+            output/cococloud-bus-rhyme-music.mp4
+
+      - name: Upload test video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cococloud-bus-rhyme-music
+          path: output/cococloud-bus-rhyme-music.mp4
+          retention-days: 7
