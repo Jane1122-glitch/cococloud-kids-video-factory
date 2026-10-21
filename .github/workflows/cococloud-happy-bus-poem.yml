@@ -9,7 +9,7 @@ permissions:
 jobs:
   create-poem-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -18,9 +18,15 @@ jobs:
       - name: Install free rendering tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg espeak-ng librsvg2-bin fonts-dejavu-core
+          sudo apt-get install -y ffmpeg librsvg2-bin fonts-dejavu-core python3-venv
 
-      - name: Create girl-style narration and original poem
+      - name: Set up free Piper cartoon-style narration
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --disable-pip-version-check piper-tts
+          .venv/bin/python -m piper.download_voices en_US-amy-medium
+
+      - name: Create narration and original poem
         run: |
           mkdir -p output
           test -f assets/bus-only.svg
@@ -38,8 +44,8 @@ jobs:
           Happy as a bus can be!
           EOF
 
-          # espeak-ng's en-us+f3 voice is a higher-pitched feminine voice.
-          espeak-ng -v en-us+f3 -s 138 -p 68 -f poem.txt -w output/voice.wav
+          # Piper Amy is a more natural-sounding synthetic voice than espeak.
+          .venv/bin/piper --model en_US-amy-medium.onnx --output_file output/voice.wav < poem.txt
 
       - name: Make a cheerful original instrumental
         run: |
