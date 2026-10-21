@@ -1,0 +1,55 @@
+
+name: CocoCloud Kids - Video Factory
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test cloud video factory
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Create test video
+        run: |
+          mkdir -p output
+          python - <<'PY'
+          import subprocess
+
+          output = "output/cococloud-test.mp4"
+          subprocess.run([
+              "ffmpeg", "-y",
+              "-f", "lavfi",
+              "-i", "color=c=lightblue:s=720x1280:d=5:r=24",
+              "-vf", "drawtext=text='CocoCloud Kids':fontcolor=blue:fontsize=52:x=(w-text_w)/2:y=(h-text_h)/2",
+              "-c:v", "libx264",
+              "-pix_fmt", "yuv420p",
+              "-movflags", "+faststart",
+              output
+          ], check=True)
+          print("Test video created:", output)
+          PY
+
+      - name: Upload test video
+        uses: actions/upload-artifact@v4
+        with:
+          name: cococloud-kids-test-video
+          path: output/cococloud-test.mp4
+          if-no-files-found: error
+          retention-days: 7
