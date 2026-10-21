@@ -10,15 +10,24 @@ permissions:
 jobs:
   create-video:
     runs-on: ubuntu-latest
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg espeak-ng
+          sudo apt-get install -y ffmpeg espeak-ng librsvg2-bin fonts-dejavu-core
 
-      - name: Create animated bus video
+      - name: Prepare bus and poem
         run: |
           mkdir -p output
+
+          test -f assets/bus-only.svg
+
+          rsvg-convert -w 480 -h 225 \
+            assets/bus-only.svg -o output/bus.png
 
           cat > poem.txt <<'EOF'
           Beep beep, here we go,
@@ -29,31 +38,30 @@ jobs:
           CocoCloud bus goes rolling by!
           EOF
 
-          espeak-ng -v en-us -s 135 -f poem.txt -w output/voice.wav
+          espeak-ng -v en-us -s 135 \
+            -f poem.txt -w output/voice.wav
 
+      - name: Create animated bus video
+        run: |
           ffmpeg -y \
             -f lavfi -i "color=c=skyblue:s=720x1280:r=24:d=20" \
+            -loop 1 -framerate 24 -i output/bus.png \
             -i output/voice.wav \
             -filter_complex "
             [0:v]
             drawbox=x=0:y=850:w=720:h=430:color=lightgreen:t=fill,
-            drawbox=x=0:y=1030:w=720:h=250:color=gray:t=fill,
+            drawbox=x=0:y=850:w=720:h=430:color=gray@0:t=fill,
+            drawbox=x=0:y=850:w=720:h=430:color=gray:t=fill,
             drawbox=x=0:y=1050:w=720:h=8:color=white:t=fill,
             drawbox=x=0:y=1210:w=720:h=8:color=white:t=fill,
-            drawbox=x=100+mod(t*80\,800):y=1110:w=90:h=10:color=white:t=fill,
-            drawbox=x=150+20*sin(t):y=690:w=420:h=190:color=yellow:t=fill,
-            drawbox=x=220:y=610:w=250:h=90:color=orange:t=fill,
-            drawbox=x=185:y=720:w=80:h=65:color=lightblue:t=fill,
-            drawbox=x=285:y=720:w=80:h=65:color=lightblue:t=fill,
-            drawbox=x=385:y=720:w=80:h=65:color=lightblue:t=fill,
-            drawbox=x=210+20*sin(t):y=850:w=90:h=90:color=black:t=fill,
-            drawbox=x=430+20*sin(t):y=850:w=90:h=90:color=black:t=fill,
-            drawbox=x=245+20*sin(t):y=875:w=20:h=40:color=white:t=fill,
-            drawbox=x=465+20*sin(t):y=875:w=20:h=40:color=white:t=fill,
             drawtext=text='CocoCloud Kids':fontcolor=blue:fontsize=42:x=(w-text_w)/2:y=250,
             drawtext=text='Beep Beep Bus!':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=400
-            [v]" \
-            -map "[v]" -map 1:a \
+            [bg];
+            [1:v]format=rgba[bus];
+            [bg][bus]overlay=x='-w+t*80':y=665:shortest=1
+            [v]
+            " \
+            -map "[v]" -map 2:a \
             -c:v libx264 -pix_fmt yuv420p \
             -c:a aac -shortest -movflags +faststart \
             output/cococloud-moving-bus.mp4
