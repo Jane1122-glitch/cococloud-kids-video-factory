@@ -1,0 +1,123 @@
+name: CocoCloud Kids - Happy Bus Poem
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create-poem-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install free rendering tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng librsvg2-bin fonts-dejavu-core
+
+      - name: Create girl-style narration and original poem
+        run: |
+          mkdir -p output
+          test -f assets/bus-only.svg
+
+          rsvg-convert -w 480 -h 225 assets/bus-only.svg -o output/bus.png
+
+          cat > poem.txt <<'EOF'
+          Beep beep, here we go,
+          Happy bus moves nice and slow.
+          Round and round the wheels all spin,
+          Wave hello to every friend.
+          Beep beep, sunny sky,
+          CocoCloud bus goes rolling by!
+          Clap your hands and sing with me,
+          Happy as a bus can be!
+          EOF
+
+          # espeak-ng's en-us+f3 voice is a higher-pitched feminine voice.
+          espeak-ng -v en-us+f3 -s 138 -p 68 -f poem.txt -w output/voice.wav
+
+      - name: Make a cheerful original instrumental
+        run: |
+          python3 - <<'PY'
+          import math, random, struct, wave
+          rate = 22050
+          duration = 30
+          total = rate * duration
+          # A simple original C-major tune, synthesized locally with no API or downloads.
+          melody = [
+              (523.25, .30), (659.25, .30), (783.99, .40), (659.25, .30),
+              (587.33, .30), (659.25, .30), (523.25, .60), (392.00, .60),
+              (523.25, .30), (659.25, .30), (783.99, .40), (880.00, .30),
+              (783.99, .30), (659.25, .30), (523.25, .70), (392.00, .50),
+          ]
+          samples = [0.0] * total
+          beat = 0.0
+          while beat < duration:
+              for freq, length in melody:
+                  if beat >= duration:
+                      break
+                  n = min(int(length * rate), total - int(beat * rate))
+                  start = int(beat * rate)
+                  for j in range(n):
+                      t = j / rate
+                      # Plucky, bell-like tone with a soft attack and quick decay.
+                      env = min(1.0, t / 0.025) * math.exp(-4.0 * t / length)
+                      tone = (math.sin(2*math.pi*freq*t)
+                              + 0.28*math.sin(2*math.pi*freq*2*t)
+                              + 0.12*math.sin(2*math.pi*freq*3*t))
+                      samples[start+j] += 0.19 * env * tone
+                  beat += length
+          # Gentle bass pulse under the tune.
+          bass_notes = [130.81, 164.81, 196.00, 164.81]
+          for start in range(0, total, rate):
+              note = bass_notes[(start // rate // 2) % len(bass_notes)]
+              n = min(rate, total-start)
+              for j in range(n):
+                  t = j / rate
+                  samples[start+j] += 0.055 * math.sin(2*math.pi*note*t) * (0.7 + 0.3*math.sin(2*math.pi*2*t))
+          with wave.open("output/music.wav", "wb") as f:
+              f.setnchannels(1)
+              f.setsampwidth(2)
+              f.setframerate(rate)
+              f.writeframes(b"".join(struct.pack("<h", int(max(-1,min(1,x))*32767)) for x in samples))
+          PY
+
+      - name: Render vertical bus poem video with mixed audio
+        run: |
+          ffmpeg -y \
+            -f lavfi -i "color=c=skyblue:s=720x1280:r=24:d=30" \
+            -loop 1 -framerate 24 -i output/bus.png \
+            -i output/voice.wav -i output/music.wav \
+            -filter_complex "
+              [0:v]
+              drawbox=x=0:y=850:w=720:h=430:color=lightgreen:t=fill,
+              drawbox=x=0:y=1050:w=720:h=8:color=white:t=fill,
+              drawbox=x=0:y=1210:w=720:h=8:color=white:t=fill,
+              drawtext=text='CocoCloud Kids':fontcolor=blue:fontsize=42:x=(w-text_w)/2:y=250,
+              drawtext=text='Beep Beep Bus!':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=400
+              [bg];
+              [1:v]format=rgba[bus];
+              [bg][bus]overlay=x='-w+t*80':y=665:shortest=1[v];
+              [2:a]volume=1.0[voice];
+              [3:a]volume=0.18[music];
+              [voice][music]amix=inputs=2:duration=first:dropout_transition=2[a]
+            " \
+            -map "[v]" -map "[a]" \
+            -c:v libx264 -pix_fmt yuv420p \
+            -c:a aac -shortest -movflags +faststart \
+            output/cococloud-happy-bus-poem.mp4
+
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 output/cococloud-happy-bus-poem.mp4
+
+      - name: Upload finished video
+        uses: actions/upload-artifact@v4
+        with:
+          name: cococloud-happy-bus-poem
+          path: output/cococloud-happy-bus-poem.mp4
+          if-no-files-found: error
+          retention-days: 7
